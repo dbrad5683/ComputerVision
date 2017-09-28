@@ -5,9 +5,9 @@ classdef ComputerVision < handle
         rgbFrames = {}
         grayFrames = {}
         numFrames = 0
+        numPixels = 0
         rows = 0
         cols = 0
-        numels = 0
         
     end
     
@@ -16,8 +16,8 @@ classdef ComputerVision < handle
         function self = ComputerVision; end
         
         function loadImagesFromDirectory(self, directory, ext)
-            % directory - directory containing image files
-            % ext - image file extension (.jpg, .png, .tiff, etc.)
+        % directory - directory containing image files
+        % ext - image file extension (.jpg, .png, .tiff, etc.)
             
             pattern = [directory filesep '*' ext];
             files = dir(pattern);
@@ -35,57 +35,121 @@ classdef ComputerVision < handle
                     self.cols = info.Width;
                 end
                 
-                self.rgbFrames{i} = im2double(imread(f));
+                self.rgbFrames{i,1} = im2double(imread(f));
 
             end
             
-            self.numels = self.rows * self.cols;
+            self.numPixels = self.rows * self.cols;
             
             for i = 1:self.numFrames
-                self.grayFrames{i} = rgb2gray(self.rgbFrames{i});
+                self.grayFrames{i,1} = rgb2gray(self.rgbFrames{i,1});
             end
             
         end
         
-        function detections = applyTestTemporalFilter(self, threshold)
-           
-            % Create the mask
-            mask = [1,0,-1];
+        function temporalGaussianFilter = makeTemporalGaussianFilter(self, sigma, numels)
+            
+            % Make gaussian
+            x = linspace(-numels / 2, numels / 2, numels);
+            temporalGaussianFilter = exp(-x .^ 2 / (2 * sigma ^ 2));
+            
+            % Normalize
+            temporalGaussianFilter = temporalGaussianFilter / sum(temporalGaussianFilter);
+            
+            % First derivative
+            temporalGaussianFilter = diff(temporalGaussianFilter);
+            
+        end
+        
+        function filteredFrames = applyTemporalFilter(self, template)
+        % template - row vector filter template
             
             % Calculate padding
-            pad = floor(length(mask)/2);
+            pad = floor(length(template) / 2);
             
-            % Flatten frames into matrix and add padding
-            flatFrames = zeros(self.numels, self.numFrames + (2 * pad));
+            flatFrames = self.flattenFrames(self.grayFrames, pad);
+
+            % Convolve with mask and trim padding
+            flatFilteredFrames = abs(conv2(flatFrames, template, 'same'));
+            flatFilteredFrames = flatFilteredFrames(:,(1:self.numFrames) + pad);
             
-            for i = (1:self.numFrames) + pad
-                flatFrames(:,i) = self.grayFrames{i - pad}(:);
-            end
-            
-            % Convolve and trim padding
-            flatFilteredFrames = abs(conv2(flatFrames, mask, 'same'));
-            flatFilteredFrames = flatFilteredFrames(:,(1:self.numFrames)+pad);
-            
-            % Threshold and detect
-            flatDetections = zeros(self.numels, self.numFrames);
-            flatDetections(flatFilteredFrames >= threshold) = 1;
+            % Normalize
+            flatFilteredFrames = flatFilteredFrames / max(flatFilteredFrames(:));
             
             % Reconstruct
-            detections = cell(self.numFrames, 1);
+            filteredFrames = cell(self.numFrames, 1);
             
             for i = 1:self.numFrames
-                detections{i} = reshape(flatDetections(:, i), self.rows, self.cols);
+                filteredFrames{i,1} = reshape(flatFilteredFrames(:,i), self.rows, self.cols);
             end
+            
+        end
+        
+        function flatFrames = flattenFrames(self, frames, pad)
+            
+            % Flatten frames into matrix and add padding
+            flatFrames = zeros(self.numPixels, self.numFrames + (2 * pad));
+            
+            for i = (1:self.numFrames)
+                flatFrames(:,i + pad) = frames{i}(:);
+            end
+            
+        end
+        
+        function thresholdAndMask(self, frames)
+            
+            noise = self.estimateNoise(frames);
+            
+        end
+        
+        function noise = estimateNoise(self, frames)
+            
+            flatFrames = self.flattenFrames(frames, 0);
+            
+            noise = sqrt(sum((flatFrames - (sum(flatFrames, 2) / self.numFrames)).^2, 2) / self.numFrames);
+            noise = sum(noise, 1) / self.numPixels;
             
         end
         
         function truecolorArray = framesToTrucolorArray(self, frames)
             
-            truecolorArray = zeros(self.rows, self.cols, 3, self.numFrames);
+            channels = size(frames{1}, 3);
+            
+            truecolorArray = zeros(self.rows, self.cols, channels, self.numFrames);
             
             for i = 1:self.numFrames
+               
+                truecolorArray(:,:,:,i) = frames{i};
                 
-                truecolorArray(:,:,:,i) = repmat(frames{i}, 1, 1, 3);
+            end
+            
+        end
+        
+        function playFrames(self, frames, n, fps)
+            
+            truecolorArray = self.framesToTrucolorArray(frames);
+            
+            if license('test', 'image_toolbox')
+                
+                mov = immovie(truecolorArray);
+                implay(mov);
+                
+            else
+                
+                imshow(truecolorArray(:,:,:,1));
+                ax = gca;
+                ax.NextPlot = 'replaceChildren';
+
+                F(self.numFrames) = struct('cdata', [], 'colormap', []);
+                for j = 1:self.numFrames
+                    imshow(truecolorArray(:,:,:,j));
+                    drawnow
+                    F(j) = getframe(gcf);
+                end
+
+                movie(fig, F, n, fps);
+
+                close(fig);
                 
             end
             
