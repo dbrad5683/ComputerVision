@@ -61,7 +61,7 @@ classdef ComputerVision < handle
             
         end
         
-        function filteredFrames = applyTemporalFilter(self, template)
+        function [filteredFrames, maskedFrames] = applyTemporalFilter(self, template, scale)
         % template - row vector filter template
             
             % Calculate padding
@@ -76,11 +76,32 @@ classdef ComputerVision < handle
             % Normalize
             flatFilteredFrames = flatFilteredFrames / max(flatFilteredFrames(:));
             
+            % Estimate noise
+            noise = self.estimateNoise(flatFilteredFrames);
+            
+            % Mask
+            flatMaskedFrames = zeros(size(flatFilteredFrames));
+            flatMaskedFrames(flatFilteredFrames >= scale * noise) = 1;
+            
             % Reconstruct
             filteredFrames = cell(self.numFrames, 1);
+            maskedFrames = cell(self.numFrames, 1);
             
             for i = 1:self.numFrames
                 filteredFrames{i,1} = reshape(flatFilteredFrames(:,i), self.rows, self.cols);
+                maskedFrames{i,1} = reshape(flatMaskedFrames(:,i), self.rows, self.cols);
+            end
+            
+        end
+        
+        function maskedFrames = maskFrames(self, frames, masks)
+            
+            maskedFrames = frames;
+            
+            for i = 1:self.numFrames
+                for j = 1:3
+                    maskedFrames{i}((logical(masks{i})) = 1;
+                end
             end
             
         end
@@ -96,17 +117,11 @@ classdef ComputerVision < handle
             
         end
         
-        function thresholdAndMask(self, frames)
+        function noise = estimateNoise(self, flatFrames)
             
-            noise = self.estimateNoise(frames);
-            
-        end
-        
-        function noise = estimateNoise(self, frames)
-            
-            flatFrames = self.flattenFrames(frames, 0);
-            
-            noise = sqrt(sum((flatFrames - (sum(flatFrames, 2) / self.numFrames)).^2, 2) / self.numFrames);
+            average_pixels = sum(flatFrames, 2) / self.numFrames;
+            mean_centered_pixels = flatFrames - average_pixels;
+            noise = sqrt(sum(mean_centered_pixels.^2, 2) / self.numFrames);
             noise = sum(noise, 1) / self.numPixels;
             
         end
@@ -115,11 +130,15 @@ classdef ComputerVision < handle
             
             channels = size(frames{1}, 3);
             
-            truecolorArray = zeros(self.rows, self.cols, channels, self.numFrames);
+            truecolorArray = zeros(self.rows, self.cols, 3, self.numFrames);
             
             for i = 1:self.numFrames
                
-                truecolorArray(:,:,:,i) = frames{i};
+                if channels == 1
+                    truecolorArray(:,:,:,i) = repmat(frames{i}, 1, 1, 3);
+                else
+                    truecolorArray(:,:,:,i) = frames{i};
+                end
                 
             end
             
