@@ -1,0 +1,29 @@
+%% function applyTemporalFilter
+
+function [filtered_frames, noise] = applyTemporalFilter(frames, template)
+% frames - cell array of grayscale images
+% template - row vector filter template
+
+    N = length(frames);
+    [rows, cols] = size(frames{1});
+    
+    % Calculate padding
+    pad = floor(length(template) / 2);
+
+    flat_frames = flattenFrames(frames, pad);
+
+    % Convolve with mask and trim padding
+    flat_filtered_frames = abs(conv2(flat_frames, template, 'same'));
+    flat_filtered_frames = flat_filtered_frames(:,(1:N) + pad);
+    
+    % Estimate noise
+    noise = estimateNoise(flat_filtered_frames(flat_filtered_frames <= median(flat_filtered_frames(:))));
+
+    % Reconstruct
+    filtered_frames = cell(N, 1);
+
+    for i = 1:N
+        filtered_frames{i,1} = reshape(flat_filtered_frames(:,i), rows, cols);
+    end
+
+end

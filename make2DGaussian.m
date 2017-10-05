@@ -1,12 +1,16 @@
 %% function make2DGaussian
 
-function template = make2DGaussian(sigma, N)
+function template = make2DGaussian(sigma)
+% sigma - standard deviation
 
+    N = ceil(5 * sigma);
+    
     if mod(N, 2) == 0
         N = N + 1;
     end
+    
     % Generate co-ordinates
-    ind = -floor(N/2) : floor(N/2);
+    ind = -floor(N / 2) : floor(N / 2);
     [X, Y] = meshgrid(ind, ind);
 
     % Create 2D Gaussian filter
