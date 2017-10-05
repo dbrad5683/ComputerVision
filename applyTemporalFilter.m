@@ -13,7 +13,7 @@ function [filtered_frames, noise] = applyTemporalFilter(frames, template)
     flat_frames = flattenFrames(frames, pad);
 
     % Convolve with mask and trim padding
-    flat_filtered_frames = abs(conv2(flat_frames, template, 'same'));
+    flat_filtered_frames = abs(conv2(1, template, flat_frames, 'same'));
     flat_filtered_frames = flat_filtered_frames(:,(1:N) + pad);
     
     % Estimate noise as average standard deviation of all pixels
