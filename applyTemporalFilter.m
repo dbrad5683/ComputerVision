@@ -16,8 +16,8 @@ function [filtered_frames, noise] = applyTemporalFilter(frames, template)
     flat_filtered_frames = abs(conv2(flat_frames, template, 'same'));
     flat_filtered_frames = flat_filtered_frames(:,(1:N) + pad);
     
-    % Estimate noise
-    noise = estimateNoise(flat_filtered_frames(flat_filtered_frames <= median(flat_filtered_frames(:))));
+    % Estimate noise as average standard deviation of all pixels
+    noise = estimateNoise(flat_filtered_frames);
 
     % Reconstruct
     filtered_frames = cell(N, 1);

@@ -14,8 +14,8 @@ tsigma = [1 2 3];
 
 % Load data
 fprintf('Loading data...\n');
-[~, frames] = loadImagesFromDirectory('data/Office', '.jpg');
-%[~, frames] = loadImagesFromDirectory('data/RedChair', '.jpg');
+%[~, frames] = loadImagesFromDirectory('data/Office', '.jpg');
+[~, frames] = loadImagesFromDirectory('data/RedChair', '.jpg');
 %[~, frames] = loadImagesFromDirectory('data/EnterExitCrossingPaths2cor', '.jpg');
 
 % Initialize spatial filters
@@ -57,11 +57,10 @@ for i = 1:length(gaussian_spatial_filter)
     spatial_filters{3 + i} = gaussian_spatial_filter{i};
 end
 
-% Process
+%% Apply spatial filter
 fprintf('Processing\n');
 spatial_filtered_frames = cell(length(spatial_filters), 1);
 
-% Apply spatial filter and estimate noise
 for i = 1:length(spatial_filters)
     
     fprintf('Spatial filter: %d/%d\n', i, length(spatial_filters));
@@ -76,7 +75,7 @@ for i = 1:length(spatial_filters)
     
 end
 
-% Apply temporal filter, detect peaks above 3 * noise_floor, and mask
+%% Apply temporal filter, estimate noise, and detect peaks above 2 * noise
 simple_temporal_filtered = cell(length(spatial_filters), 1);
 simple_temporal_masked = cell(length(spatial_filters), 1);
 gaussian_temporal_filtered = cell(length(spatial_filters), length(gaussian_temporal_filter));
@@ -87,11 +86,11 @@ for i = 1:length(spatial_filters)
     fprintf('Temporal filter: %d/%d\n', i, length(spatial_filters));
     
     [simple_temporal_filtered{i}, noise] = applyTemporalFilter(spatial_filtered_frames{i}, simple_temporal_filter);
-    simple_temporal_masked{i} = detectAndMask(frames, simple_temporal_filtered{i}, noise);
+    simple_temporal_masked{i} = detectAndMask(frames, simple_temporal_filtered{i}, 2 * noise);
     
     for j = 1:length(gaussian_temporal_filter)
         [gaussian_temporal_filtered{i,j}, noise] = applyTemporalFilter(spatial_filtered_frames{i}, gaussian_temporal_filter{j});
-        gaussian_temporal_masked{i,j} = detectAndMask(frames, gaussian_temporal_filtered{i,j}, noise);
+        gaussian_temporal_masked{i,j} = detectAndMask(frames, gaussian_temporal_filtered{i,j}, 2 * noise);
     end
     
 end

@@ -2,11 +2,12 @@
 
 function playFrames(frames)
 
+    N = length(frames);
     [rows, cols, channels] = size(frames{1});
     
     truecolorArray = zeros(rows, cols, 3, length(frames));
 
-    for i = 1:length(frames)
+    for i = 1:N
 
         if channels == 1
             truecolorArray(:,:,:,i) = repmat(frames{i}, 1, 1, 3);
@@ -27,16 +28,12 @@ function playFrames(frames)
         ax = gca;
         ax.NextPlot = 'replaceChildren';
 
-        F(self.numFrames) = struct('cdata', [], 'colormap', []);
-        for j = 1:self.numFrames
+        F(N) = struct('cdata', [], 'colormap', []);
+        for j = 1:N
             imshow(truecolorArray(:,:,:,j));
             drawnow
             F(j) = getframe(gcf);
         end
-
-        movie(fig, F, n, fps);
-
-        close(fig);
 
     end
 
