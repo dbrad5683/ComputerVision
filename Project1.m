@@ -76,8 +76,10 @@ for i = 1:length(spatial_filters)
 end
 
 %% Apply temporal filter, estimate noise, and detect peaks above 2 * noise
+
 simple_temporal_filtered = cell(length(spatial_filters), 1);
 simple_temporal_masked = cell(length(spatial_filters), 1);
+
 gaussian_temporal_filtered = cell(length(spatial_filters), length(gaussian_temporal_filter));
 gaussian_temporal_masked = cell(length(spatial_filters), length(gaussian_temporal_filter));
 
