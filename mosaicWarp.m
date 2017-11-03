@@ -1,3 +1,5 @@
+%% function mosaicWarp
+
 function mosaic = mosaicWarp(img1, img2, h)
 
 % Find limits of img2 warped into img1 frame
