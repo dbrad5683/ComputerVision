@@ -6,14 +6,14 @@ function mosaic = makeMosaic(img1, img2, ncc_window_radius, homography_iteration
 % ncc_window_radius - radius (r) of correlation window (2r + 1)x(2r + 1)
 % homography_iterations - RANSAC iterations for homography estimation
 
-    img1_gray = rgb2gray(img1);
-    img2_gray = rgb2gray(img2);
-
     % Scale images
     disp('Scaling images...');
-    img1_gray = img1_gray(1:scale_factor:end, 1:scale_factor:end);
-    img2_gray = img2_gray(1:scale_factor:end, 1:scale_factor:end);
+    img1 = img1(1:scale_factor:end, 1:scale_factor:end);
+    img2 = img2(1:scale_factor:end, 1:scale_factor:end);
     disp('done.');
+    
+    img1_gray = rgb2gray(img1);
+    img2_gray = rgb2gray(img2);
 
     % Detect corner features in each image
     disp('Detecting corners...');
