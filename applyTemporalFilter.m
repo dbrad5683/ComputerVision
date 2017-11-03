@@ -1,23 +1,21 @@
 %% function applyTemporalFilter
 
-function [filtered_frames, noise] = applyTemporalFilter(frames, template)
+function [filtered_frames, noise_estimate] = applyTemporalFilter(frames, filter)
 % frames - cell array of grayscale images
 % template - row vector filter template
 
     N = length(frames);
     [rows, cols] = size(frames{1});
-    
-    % Calculate padding
-    pad = floor(length(template) / 2);
 
-    flat_frames = flattenFrames(frames, pad);
+    % Flatten cell array into 2D array where each column is an image
+    flat_frames = flattenFrames(frames);
 
-    % Convolve with mask and trim padding
-    flat_filtered_frames = abs(conv2(1, template, flat_frames, 'same'));
-    flat_filtered_frames = flat_filtered_frames(:,(1:N) + pad);
+    % Convolve with filter
+    flat_filtered_frames = abs(conv2(1, filter, flat_frames, 'same'));
     
-    % Estimate noise as average standard deviation of all pixels
-    noise = estimateNoise(flat_filtered_frames);
+    % Estimate noise as average standard deviation of all derivative pixels <= median derivative pixel
+    % noise_estimate = estimateNoise(flat_filtered_frames);
+    noise_estimate = std(flat_filtered_frames(:));
 
     % Reconstruct
     filtered_frames = cell(N, 1);

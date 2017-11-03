@@ -14,7 +14,7 @@ function [rgb_frames, gray_frames] = loadImagesFromDirectory(directory, ext)
     for i = 1:N
 
         f = [files(i).folder filesep files(i).name];
-        rgb_frames{i} = im2double(imread(f));
+        rgb_frames{i} = imread(f);
         gray_frames{i} = rgb2gray(rgb_frames{i});
 
     end

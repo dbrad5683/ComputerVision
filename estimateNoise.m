@@ -1,12 +1,11 @@
 %% function estimateNoise
 
-function average_noise = estimateNoise(flat_frames)
+function noise_estimate = estimateNoise(flat_frames)
 % flat_frames - 2D array with an image in each column
-
-    N = size(flat_frames, 2);
-    mean_pixels = repmat(mean(flat_frames, 2), 1, N);
-    zero_mean_pixels = flat_frames - mean_pixels;
-    noise_pixels = sqrt(sum(zero_mean_pixels.^2, 2) ./ (N - 1));
-    average_noise = mean(noise_pixels);
+    
+    % Find the mean pixel value and assume all values at or below that constitute noise
+    mean_pixel = mean(flat_frames(:));
+    noise_pixels = flat_frames(flat_frames <= mean_pixel);
+    noise_estimate = std(noise_pixels);
 
 end

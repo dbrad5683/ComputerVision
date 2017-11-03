@@ -11,7 +11,7 @@ function template = make1DGaussian(N, sigma)
     % Generate co-ordinates
     X = linspace(-floor(N / 2), floor(N / 2), N);
 
-    % Create 2D Gaussian filter
+    % Create 1D Gaussian filter
     template = exp(-X.^2 / (2 * sigma * sigma));
 
     % Normalize
