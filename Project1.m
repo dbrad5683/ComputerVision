@@ -14,9 +14,9 @@ tsigma = [1, 2, 3];
 
 % Load data
 fprintf('Loading data...\n');
-%[~, frames] = loadImagesFromDirectory('data/Office', '.jpg');
-[~, frames] = loadImagesFromDirectory('data/RedChair', '.jpg');
-%[~, frames] = loadImagesFromDirectory('data/EnterExitCrossingPaths2cor', '.jpg');
+%[~, frames] = loadImagesFromDirectory('data/Office', 'jpg');
+[~, frames] = loadImagesFromDirectory('data/RedChair', 'jpg');
+%[~, frames] = loadImagesFromDirectory('data/EnterExitCrossingPaths2cor', 'jpg');
 
 % Initialize spatial filters
 fprintf('Initializing spatial filters...\n');

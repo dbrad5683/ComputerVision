@@ -8,9 +8,9 @@ close all
 clear
 clc
 
-[color, ~] = loadImagesFromDirectory('data/DanaOffice', '.JPG');
-% [color, ~] = loadImagesFromDirectory('data/DanaHallWay1', '.JPG');
-% [color, ~] = loadImagesFromDirectory('data/DanaHallWay2', '.JPG');
+[color, ~] = loadImagesFromDirectory('data/DanaOffice', 'JPG');
+% [color, ~] = loadImagesFromDirectory('data/DanaHallWay1', 'JPG');
+% [color, ~] = loadImagesFromDirectory('data/DanaHallWay2', 'JPG');
 
 % Choose 2
 i1 = 2;
