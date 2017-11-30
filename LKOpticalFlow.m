@@ -1,18 +1,20 @@
 %% function LKOpticalFlow
 
-function [u, v] = LKOpticalFlow(img1, img2, W)
-% img1 - first image in sequence
-% img2 - second image in sequence
-% W - window size = 2W + 1
+function [u, v] = LKOpticalFlow(img1, img2, w, sigma_d, sigma_s)
+% img1 : first image in sequence
+% img2 : second image in sequence
+% w : window size = 2w + 1
+% sigma_d : differential Gaussian mask sigma
+% sigma_s : spatial smoothing Gaussian sigma
 
 % Make Gaussian differential filters
-G = make1DGaussian(6, 1);
+G = make1DGaussian(ceil(5 * sigma_d), sigma_d);
 G = -diff(G);
 G_x = repmat(G, length(G), 1);
 G_y = repmat(G', 1, length(G));
 
 % Make Gaussian smoothing filter
-G_s = make2DGaussian(5, 1);
+G_s = make2DGaussian(ceil(5 * sigma_s), sigma_s);
 
 % Smooth images
 i1_s = filter2(G_s, img1);
@@ -41,8 +43,8 @@ v = zeros(size(img1));
 for i = 1:rows
     for j = 1:cols
         
-        r = max(1, i - W):min(rows, i + W);
-        c = max(1, j - W):min(cols, j + W);
+        r = max(1, i - w):min(rows, i + w);
+        c = max(1, j - w):min(cols, j + w);
         
         A = [sum(sum(I_x_sq(r,c))), sum(sum(I_xy(r,c))); sum(sum(I_xy(r,c))), sum(sum(I_y_sq(r,c)))];
         b = -[sum(sum(I_xt(r,c))); sum(sum(I_yt(r,c)))];
