@@ -25,7 +25,7 @@ interp_factor = 0.075;			%linear interpolation factor for adaptation
 %ask the user for the video
 video_path = choose_video(base_path);
 if isempty(video_path), return, end  %user cancelled
-[img_files, pos, target_sz, resize_image, ground_truth, video_path] = ...
+[img_files, pos, target_sz, resize_image, ground_truth, mil_track, video_path] = ...
 	load_video_info(video_path);
 
 
@@ -41,19 +41,26 @@ yf = fft2(y);
 %store pre-computed cosine window
 cos_window = hann(sz(1)) * hann(sz(2))';
 
-
 time = 0;  %to calculate FPS
 positions = zeros(numel(img_files), 2);  %to calculate precision
+occ_positions = zeros(numel(img_files), 2);  %to calculate precision
 
 psr = zeros(numel(img_files), 1);
+occ = false(numel(img_files), 1);
+occ_pos = pos;
 
-for frame = 1:numel(img_files),
+vel = [0,0];
+ppos = zeros(5,2);
+ppos(1,:) = pos;
+
+for frame = 1:numel(img_files)
+    
 	%load image
-	im = imread([video_path img_files{frame}]);
-	if size(im,3) > 1,
+	im = imread([video_path, img_files{frame}]);
+	if size(im, 3) > 1
 		im = rgb2gray(im);
 	end
-	if resize_image,
+	if resize_image
 		im = imresize(im, 0.5);
 	end
 	
@@ -61,35 +68,33 @@ for frame = 1:numel(img_files),
 	
 	%extract and pre-process subwindow
 	x = get_subwindow(im, pos, sz, cos_window);
-	
-    occlusion = false;
     
-	if frame > 1,
+	if frame > 1
+        
 		%calculate response of the classifier at all locations
 		k = dense_gauss_kernel(sigma, x, z);
 		response = real(ifft2(alphaf .* fft2(k)));   %(Eq. 9)
 		
 		%target location is at the maximum response
 		[row, col] = find(response == max(response(:)), 1);
+        pos = pos - floor(sz/2) + [row, col];
         
         % Check PSR for occlusion
-        sidelobe = logical(ones(size(response)));
-        sidelobe((row - 5):(row + 5), (col - 5):(col + 5)) = 0;
+        sidelobe = true(size(response));
+        sidelobe((row - 5):(row + 5), (col - 5):(col + 5)) = false;
         psr(frame) = (response(row, col) - mean(response(sidelobe))) / std(response(sidelobe));
         
         if psr(frame) <= 15
-            occlusion = true;
+            occ(frame) = true;
+            occ_pos = occ_pos + vel;
         else
-            occlusion = false;
+            occ_pos = pos;
         end
         
-		pos = pos - floor(sz/2) + [row, col];
-        
-        % Hankel Matrix
-        h = hankel([h(:,1); pos']);
-        
-    else
-        h = hankel(pos');
+        ppos = circshift(ppos, 1, 1);
+        ppos(1,:) = occ_pos;
+        vel = mean(diff(ppos(1:min(frame, 5),:), 1), 1);
+
 	end
 	
 	%get subwindow at current estimated target position, to train classifer
@@ -100,34 +105,44 @@ for frame = 1:numel(img_files),
 	new_alphaf = yf ./ (fft2(k) + lambda);   %(Eq. 7)
 	new_z = x;
 	
-	if frame == 1,  %first frame, train with a single image
+	if frame == 1  %first frame, train with a single image
 		alphaf = new_alphaf;
 		z = x;
-	else
-		%subsequent frames, interpolate model
+    else  %subsequent frames, interpolate model
 		alphaf = (1 - interp_factor) * alphaf + interp_factor * new_alphaf;
 		z = (1 - interp_factor) * z + interp_factor * new_z;
 	end
 	
 	%save position and calculate FPS
 	positions(frame,:) = pos;
+    occ_positions(frame,:) = occ_pos;
 	time = time + toc();
 	
 	%visualization
 	rect_position = [pos([2,1]) - target_sz([2,1])/2, target_sz([2,1])];
+    if occ(frame)
+        occ_rect_position = [occ_pos([2,1]) - target_sz([2,1])/2, target_sz([2,1])];
+    end
+    mil_rect_position = [mil_track(frame,[2,1]) - target_sz([2,1])/2, target_sz([2,1])];
+    
 	if frame == 1,  %first frame, create GUI
 		figure()
 		im_handle = imshow(im, 'Border','tight', 'InitialMag',200);
         rect_handle = rectangle('Position',rect_position, 'EdgeColor','g');
+        occ_rect_handle = rectangle('Visible', 'off', 'EdgeColor', 'g');
+        mil_rect_handle = rectangle('Position',mil_rect_position, 'EdgeColor','c');
 	else
 		try  %subsequent frames, update GUI
 			set(im_handle, 'CData', im)
 			set(rect_handle, 'Position', rect_position)
+            set(mil_rect_handle, 'Position', mil_rect_position)
             
-            if occlusion
+            if occ(frame)
                 set(rect_handle, 'EdgeColor', 'r')
+                set(occ_rect_handle, 'Position', occ_rect_position, 'Visible', 'on')
             else
                 set(rect_handle, 'EdgeColor', 'g')
+                set(occ_rect_handle, 'visible', 'off')
             end
             
 		catch  %#ok, user has closed the window
@@ -145,4 +160,5 @@ disp(['Frames-per-second: ' num2str(numel(img_files) / time)])
 
 %show the precisions plot
 show_precision(positions, ground_truth, video_path)
-
+show_precision(occ_positions, ground_truth, video_path)
+show_precision(mil_track, ground_truth, video_path)

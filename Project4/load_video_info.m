@@ -1,4 +1,4 @@
-function [img_files, pos, target_sz, resize_image, ground_truth, ...
+function [img_files, pos, target_sz, resize_image, ground_truth, mil_track, ...
 	video_path] = load_video_info(video_path)
 %LOAD_VIDEO_INFO
 %   Loads all the relevant information for the video in the given path:
@@ -21,6 +21,15 @@ function [img_files, pos, target_sz, resize_image, ground_truth, ...
 	ground_truth = textscan(f, '%f,%f,%f,%f');  %[x, y, width, height]
 	ground_truth = cat(2, ground_truth{:});
 	fclose(f);
+    
+	%load MIL Track
+	text_files = dir([video_path '*_MIL_TR001.txt']);
+	assert(~isempty(text_files), 'No MIL Track (*_MIL_TRxxx.txt) to load.')
+
+	f = fopen([video_path text_files(1).name]);
+	mil_track = textscan(f, '%f,%f,%f,%f');  %[x, y, width, height]
+	mil_track = cat(2, mil_track{:});
+	fclose(f);
 	
 	%set initial position and size
 	target_sz = [ground_truth(1,4), ground_truth(1,3)];
@@ -31,6 +40,7 @@ function [img_files, pos, target_sz, resize_image, ground_truth, ...
 		ground_truth = interp1(1 : 5 : size(ground_truth,1), ...
 			ground_truth(1:5:end,:), 1:size(ground_truth,1));
 		ground_truth = ground_truth(:,[2,1]) + ground_truth(:,[4,3]) / 2;
+        mil_track = mil_track(:,[2,1]) + mil_track(:,[4,3]) / 2;
 	catch  %#ok, wrong format or we just don't have ground truth data.
 		ground_truth = [];
 	end
@@ -75,6 +85,7 @@ function [img_files, pos, target_sz, resize_image, ground_truth, ...
 % 	else
 % 		resize_image = false;
 %     end
-    resize_image = false;
-end
 
+    resize_image = false;
+
+end
