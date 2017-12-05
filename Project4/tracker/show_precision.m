@@ -32,7 +32,7 @@ function show_precision(positions, ground_truth, title)
 	end
 	
 	%plot the precisions
-	figure('Number','off', 'Name',['Precisions - ' title])
+	figure()
 	plot(precisions, 'k-', 'LineWidth',2)
 	xlabel('Threshold'), ylabel('Precision')
 

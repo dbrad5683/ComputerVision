@@ -6,9 +6,11 @@
 %  João F. Henriques, 2012
 %  http://www.isr.uc.pt/~henriques/
 
+close all;
+occlusion_recovery = true;
 
 %choose the path to the videos (you'll be able to choose one with the GUI)
-base_path = './data/';
+base_path = '../data/';
 
 
 %parameters according to the paper
@@ -45,6 +47,15 @@ cos_window = hann(sz(1)) * hann(sz(2))';
 time = 0;  %to calculate FPS
 positions = zeros(numel(img_files), 2);  %to calculate precision
 
+if occlusion_recovery
+    N = 10;
+    threshold = 10;
+    occlusion = false;
+    velocity = [0, 0];
+    ppos = zeros(N, 2);
+    ppos(1,:) = pos;
+end
+
 for frame = 1:numel(img_files),
 	%load image
 	im = imread([video_path img_files{frame}]);
@@ -61,14 +72,44 @@ for frame = 1:numel(img_files),
 	x = get_subwindow(im, pos, sz, cos_window);
 	
 	if frame > 1,
+        
 		%calculate response of the classifier at all locations
 		k = dense_gauss_kernel(sigma, x, z);
 		response = real(ifft2(alphaf .* fft2(k)));   %(Eq. 9)
 		
 		%target location is at the maximum response
 		[row, col] = find(response == max(response(:)), 1);
-		pos = pos - floor(sz/2) + [row, col];
-	end
+        
+        %check psr for occlusion
+        if occlusion_recovery
+            
+            sidelobe = true(size(response));
+            sidelobe((row - 5):(row + 5), (col - 5):(col + 5)) = false;
+            psr = (response(row, col) - mean(response(sidelobe))) / std(response(sidelobe));
+            
+            if psr <= threshold
+                
+                occlusion = true;
+                pos = pos + velocity;
+                
+            else
+                
+                occlusion = false;
+                pos = pos - floor(sz/2) + [row, col];
+                
+            end
+            
+            ppos = circshift(ppos, 1, 1);
+            ppos(1,:) = pos;
+            velocity = mean(-diff(ppos(1:min(frame, N),:), 1), 1);
+                
+        else
+            
+    		pos = pos - floor(sz/2) + [row, col];
+            
+        end
+        
+    end
 	
 	%get subwindow at current estimated target position, to train classifer
 	x = get_subwindow(im, pos, sz, cos_window);
@@ -81,10 +122,12 @@ for frame = 1:numel(img_files),
 	if frame == 1,  %first frame, train with a single image
 		alphaf = new_alphaf;
 		z = x;
-	else
-		%subsequent frames, interpolate model
-		alphaf = (1 - interp_factor) * alphaf + interp_factor * new_alphaf;
-		z = (1 - interp_factor) * z + interp_factor * new_z;
+    else
+        if (~occlusion_recovery || (occlusion_recovery && ~occlusion))
+            %subsequent frames, interpolate model
+            alphaf = (1 - interp_factor) * alphaf + interp_factor * new_alphaf;
+            z = (1 - interp_factor) * z + interp_factor * new_z;
+        end
 	end
 	
 	%save position and calculate FPS
@@ -94,13 +137,20 @@ for frame = 1:numel(img_files),
 	%visualization
 	rect_position = [pos([2,1]) - target_sz([2,1])/2, target_sz([2,1])];
 	if frame == 1,  %first frame, create GUI
-		figure('Number','off', 'Name',['Tracker - ' video_path])
+		figure()
 		im_handle = imshow(im, 'Border','tight', 'InitialMag',200);
 		rect_handle = rectangle('Position',rect_position, 'EdgeColor','g');
 	else
 		try  %subsequent frames, update GUI
 			set(im_handle, 'CData', im)
 			set(rect_handle, 'Position', rect_position)
+            if occlusion_recovery
+                if occlusion
+                    set(rect_handle, 'EdgeColor', 'r')
+                else
+                    set(rect_handle, 'EdgeColor', 'g')
+                end
+            end
 		catch  %#ok, user has closed the window
 			return
 		end
@@ -116,4 +166,3 @@ disp(['Frames-per-second: ' num2str(numel(img_files) / time)])
 
 %show the precisions plot
 show_precision(positions, ground_truth, video_path)
-

@@ -68,12 +68,15 @@ function [img_files, pos, target_sz, resize_image, ground_truth, ...
 	
 	%if the target is too large, use a lower resolution - no need for so
 	%much detail
-	if sqrt(prod(target_sz)) >= 100,
-		pos = floor(pos / 2);
-		target_sz = floor(target_sz / 2);
-		resize_image = true;
-	else
-		resize_image = false;
-	end
+% 	if sqrt(prod(target_sz)) >= 100,
+% 		pos = floor(pos / 2);
+% 		target_sz = floor(target_sz / 2);
+% 		resize_image = true;
+% 	else
+% 		resize_image = false;
+% 	end
+
+    resize_image = false;
+    
 end
 
