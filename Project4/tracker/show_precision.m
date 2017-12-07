@@ -1,4 +1,4 @@
-function show_precision(positions, ground_truth, title)
+function show_precision(positions, ground_truth, color)
 %SHOW_PRECISION
 %   Calculates precision for a series of distance thresholds (percentage of
 %   frames where the distance to the ground truth is within the threshold).
@@ -32,8 +32,7 @@ function show_precision(positions, ground_truth, title)
 	end
 	
 	%plot the precisions
-	figure()
-	plot(precisions, 'k-', 'LineWidth',2)
+	plot(precisions, color, 'LineWidth',2)
 	xlabel('Threshold'), ylabel('Precision')
 
 end

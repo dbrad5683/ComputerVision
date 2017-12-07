@@ -18,10 +18,10 @@ occlusion_recovery = true;
 if occlusion_recovery
     
     w = 5; %exclude (2w + 1)x(2w + 1) window around peak response for sidelobes
-    n_min = 20;
-    n_max = 40; %hankel complexity
-    threshold = 10; %psr threshold for occlusion
+    n_max = 10; %hankel complexity
+    threshold = .15; %psr threshold for occlusion
     occluded = false;
+    save_figures = true;
     
 end
 
@@ -42,11 +42,16 @@ if isempty(video_path)
     return
 end
 
-[img_files, pos, target_sz, resize_image, ground_truth, video_path] = load_video_info(video_path);
+[img_files, pos, target_sz, resize_image, ground_truth, mil_track, video_path] = load_video_info(video_path);
 
 if occlusion_recovery
-    ppos = zeros(2 * numel(img_files), 1); %vector to store previous positions
-    ppos(1:2) = pos';
+    cm_fname = [video_path '../cm.txt'];
+    if exist(cm_fname, 'file') == 2
+        f = fopen(cm_fname);
+        cm_track = textscan(f, '%f,%f,%f,%f');  %[x, y, width, height]
+        cm_track = cat(2, cm_track{:});
+        fclose(f);
+    end
 end
 
 %window size, taking padding into account
@@ -63,6 +68,10 @@ cos_window = hann(sz(1)) * hann(sz(2))';
 
 time = 0;  %to calculate FPS
 positions = zeros(numel(img_files), 2);  %to calculate precision
+if occlusion_recovery
+    occ = zeros(numel(img_files), 1);
+    psr = zeros(numel(img_files), 1);
+end
 
 for frame = 1:numel(img_files)
     
@@ -95,41 +104,13 @@ for frame = 1:numel(img_files)
             [rows, cols] = size(response);
             sidelobe = true(rows, cols);
             sidelobe(max((row - w), 1):min((row + w), rows), max((col - w), 1):min((col + w), cols)) = false;
-            psr = (response(row, col) - mean(response(sidelobe))) / std(response(sidelobe));
+            psr(frame) = (response(row, col) - mean(response(sidelobe))) / std(response(sidelobe));
             
-            if psr <= threshold
-                
-%                 H_x = zeros(n);
-%                 H_y = zeros(n);
-%                 c_beg = max(frame - (2 * n) + 2, 1);
-%                 
-%                 for i = 1:n
-%                     H_x(:,i) = positions(c_beg:c_beg + n - 1, 1);
-%                     H_y(:,i) = positions(c_beg:c_beg + n - 1, 2);
-%                     c_beg = c_beg + 1;
-%                 end
-%                 
-%                 A_x = H_x(1:(end - 1), 1:(end - 1));
-%                 b_x = H_x(1:(end - 1), end);
-%                 C_x = H_x(end, 1:(end - 1));
-%                 
-%                 v_x = A_x \ b_x;
-%                 v_x(abs(v_x) == inf) = 0;
-%                 
-%                 X = C_x * v_x;
-%                 
-%                 A_y = H_y(1:(end - 1), 1:(end - 1));
-%                 b_y = H_y(1:(end - 1), end);
-%                 C_y = H_y(end, 1:(end - 1));
-%                 
-%                 v_y = A_y \ b_y;
-%                 v_y(abs(v_y) == inf) = 0;
-%                 
-%                 Y = C_y * v_y;
-%                 
-%                 pos = [X, Y];
+            if psr(frame) <= threshold * max(psr)
 
-                n = floor(frame / 2);
+                occluded = true;
+                
+                n = min(floor(frame / 2), n_max);
 
                 if mod(n, 2)
                     n = n - 1;
@@ -139,30 +120,26 @@ for frame = 1:numel(img_files)
                 h = positions((frame - (2 * (n - 1))):frame, :)';
                 h = h(:);
 
-                for i = 1:n
-                    H(:,i) = h(((2 * (i - 1)) + 1):((2 * (i - 1)) + (2 * n)));
+                for i = 0:(n - 1)
+                    H(:,i + 1) = h(((2 * i) + 1):((2 * i) + (2 * n)));
                 end
 
-                if ~occluded
-                    A = H(1:(end - 2), 1:(end - 1));
-                    b = H(1:(end - 2), end);
-                    v = A \ b;
-                end
+                A = H(1:(end - 2), 1:(end - 1));
+                b = H(1:(end - 2), end);
+                v = A \ b;
                 
                 C = H((end - 1):end, 1:(end - 1));
-                X = C(:,(end - size(v, 1) + 1):end) * v;
-                pos = X';
-                
-                occluded = true;
+                pos = (C * v)';
                 
             else
                 
                 occluded = false;
+                
                 pos = pos - floor(sz/2) + [row, col];
                 
             end
             
-            ppos((2 * frame - 1):(2 * frame)) = pos';
+            occ(frame) = occluded;
                 
         else
             
@@ -172,7 +149,7 @@ for frame = 1:numel(img_files)
         
     end
 
-    if ~occluded
+    if (~occlusion_recovery || (occlusion_recovery && ~occluded))
 
         %get subwindow at current estimated target position, to train classifer
         x = get_subwindow(im, pos, sz, cos_window);
@@ -199,10 +176,18 @@ for frame = 1:numel(img_files)
 	
 	%visualization
 	rect_position = [pos([2,1]) - target_sz([2,1])/2, target_sz([2,1])];
+    if occlusion_recovery
+        cm_rect_position = [cm_track(frame,[2,1]) - target_sz([2,1])/2, target_sz([2,1])];
+        mil_rect_position = [mil_track(frame,[1,2]), mil_track(frame,[3,4])];
+    end
 	if frame == 1  %first frame, create GUI
 		figure()
 		im_handle = imshow(im, 'Border','tight', 'InitialMag',200);
-		rect_handle = rectangle('Position',rect_position, 'EdgeColor','g');
+		rect_handle = rectangle('Position',rect_position, 'EdgeColor','g', 'LineWidth', 2);
+        if occlusion_recovery
+            cm_rect_handle = rectangle('Position',cm_rect_position, 'EdgeColor','c', 'LineWidth', 2);
+            mil_rect_handle = rectangle('Position',mil_rect_position, 'EdgeColor','y', 'LineWidth', 2);
+        end
 	else
 		try  %subsequent frames, update GUI
 			set(im_handle, 'CData', im)
@@ -213,6 +198,8 @@ for frame = 1:numel(img_files)
                 else
                     set(rect_handle, 'EdgeColor', 'g')
                 end
+                set(cm_rect_handle, 'Position', cm_rect_position)
+                set(mil_rect_handle, 'Position', mil_rect_position)
             end
         catch %user has closed the window
 			return
@@ -220,13 +207,55 @@ for frame = 1:numel(img_files)
 	end
 	
 	drawnow
+    
+    if (occlusion_recovery && save_figures)
+        outdir = [video_path '../out/'];
+        if ~isdir(outdir)
+            mkdir(outdir);
+        end
+        parts = split(img_files{frame}, '.');
+        fname = [outdir char(parts{1}) '.eps'];
+        print(fname, '-depsc');
+    end
+    
     %pause(0.05)  %uncomment to run slower
     
 end
 
 if resize_image, positions = positions * 2; end
 
+if ~occlusion_recovery
+	f = fopen([video_path '../cm.txt'], 'w+');
+    for i = 1:size(positions, 1)
+        fprintf(f, '%f,%f,%f,%f\n', positions(i,1), positions(i,2), target_sz(1,1), target_sz(1,2));
+    end
+	fclose(f);
+else
+	f = fopen([video_path '../occ.txt'], 'w+');
+    for i = 1:size(positions, 1)
+        fprintf(f, '%f,%f,%f,%f,%d\n', positions(i,1), positions(i,2), target_sz(1,1), target_sz(1,2), occ(i));
+    end
+	fclose(f);
+end
+
 disp(['Frames-per-second: ' num2str(numel(img_files) / time)])
 
 %show the precisions plot
-show_precision(positions, ground_truth, video_path)
+figure()
+hold on;
+show_precision(positions, ground_truth, 'g')
+if occlusion_recovery
+    show_precision(cm_track(:,1:2), ground_truth, 'c')
+    show_precision(mil_track(:,[2,1]) + repmat(target_sz([1,2])/2, size(mil_track, 1), 1), ground_truth, 'y')
+end
+legend({'Occlusion Recovery', 'CM Track', 'MIL Track'}, 'Location', 'SouthEast');
+hold off;
+
+if (occlusion_recovery && save_figures)
+    outdir = [video_path '../out/'];
+    if ~isdir(outdir)
+        mkdir(outdir);
+    end
+    fname = [outdir 'precision.eps'];
+    print(fname, '-depsc');
+end

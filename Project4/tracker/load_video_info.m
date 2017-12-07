@@ -1,4 +1,4 @@
-function [img_files, pos, target_sz, resize_image, ground_truth, ...
+function [img_files, pos, target_sz, resize_image, ground_truth, mil_track, ...
 	video_path] = load_video_info(video_path)
 %LOAD_VIDEO_INFO
 %   Loads all the relevant information for the video in the given path:
@@ -20,6 +20,15 @@ function [img_files, pos, target_sz, resize_image, ground_truth, ...
 	f = fopen([video_path text_files(1).name]);
 	ground_truth = textscan(f, '%f,%f,%f,%f');  %[x, y, width, height]
 	ground_truth = cat(2, ground_truth{:});
+	fclose(f);
+    
+    %load mil_track from text file (MILTrack's format)
+	text_files = dir([video_path '*_MIL_TR*.txt']);
+	assert(~isempty(text_files), 'No mil_track (*_MIL_TR*.txt) to load.')
+
+	f = fopen([video_path text_files(1).name]);
+	mil_track = textscan(f, '%f,%f,%f,%f');  %[x, y, width, height]
+	mil_track = cat(2, mil_track{:});
 	fclose(f);
 	
 	%set initial position and size
