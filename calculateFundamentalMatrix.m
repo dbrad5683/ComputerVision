@@ -23,6 +23,6 @@ function f = calculateFundamentalMatrix(points)
     
     [U_f, S_f, V_f] = svd(f);
     S_f(3,3) = 0;
-    f = U_f * S_f, V_f';
+    f = U_f * S_f * V_f';
 
 end
