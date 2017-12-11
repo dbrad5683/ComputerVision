@@ -16,12 +16,10 @@ function [f, scores] = denseDisparity(img1, img2, ncc_window_radius, n_iter)
     disp('Computing NCC...');
     scores = normalizedCrossCorrelation(img1, corners1, img2, corners2, ncc_window_radius);
     disp('done.');
-   
-    return
     
     % Estimate the fundamental matrix
     disp('Estimating fundamental matrix...');
-    f = estimateFundamentalMatrix(scores, n_iter);
+    [f, scores] = estimateFundamentalMatrix(scores, n_iter);
     disp('done.');
     
     [rows, cols] = size(img1);

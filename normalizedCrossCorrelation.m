@@ -80,6 +80,11 @@ function scores = normalizedCrossCorrelation(img1, corners1, img2, corners2, win
 
     % For each corner in img1
     for ii = 1:n1
+        
+        percent = 100 * ii / n1;
+        if mod(percent, 10) == 0
+            disp(percent)
+        end
 
         scores(ii,1) = windows{1,1}(ii,1);
         scores(ii,2) = windows{1,1}(ii,2);

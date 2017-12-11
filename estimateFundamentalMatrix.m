@@ -19,16 +19,16 @@ function [f, scores] = estimateFundamentalMatrix(scores, num_iterations)
         for ii = 1:size(scores, 1)
 
             % We have to convert from [row, col] to [x; y]
-            observed = [scores(ii,4), scores(ii,3), 1]';
-            predicted = [scores(ii,2), scores(ii,1), 1]';
+            observed = [scores(ii,4), scores(ii,3), 1];
+            predicted = [scores(ii,2), scores(ii,1), 1];
             
-            result = predicted * f * observed;
+            result = observed * f * predicted';
 
             % Calculate euclidean distance from 0
             diff = sqrt(sum(result.^2));
 
             % Threshold 
-            if diff < 1
+            if diff < 1e-8
                 inliers(ii) = 1;
             end
 
