@@ -20,31 +20,58 @@ disp('done.');
 
 % Compute NCC scores for each pair of corners with a window radius of 11
 disp('Computing NCC...');
-ncc_scores = normalizedCrossCorrelation(img1, corners1, img2, corners2, 25);
+ncc_scores = normalizedCrossCorrelation(img1, corners1, img2, corners2, 10);
 disp('done.');
 
 % Estimate the fundamental matrix
 disp('Estimating fundamental matrix...');
-[f, scores] = estimateFundamentalMatrix(ncc_scores, 1000);
+[f, scores] = estimateFundamentalMatrix(ncc_scores, 10000);
 disp('done.');
 
 plotCornerMatches(img1, img2, scores);
 
-w = 10;
+w = 20;
 [rows, cols] = size(img1);
 
-for y = (w + 1):(rows - w)
-    for x = (w + 1):(cols - w)
+v_disparity = zeros(rows, cols);
+h_disparity = zeros(rows, cols);
+
+for r = (w + 1):(rows - w)
+    
+    for c = (w + 1):(cols - w)
         
-        win = img1((y - w):(y + w),(x - w):(x + w));
-        p = f * [x; y; 1];
+        win = double(img1((r - w):(r + w),(c - w):(c + w)));
+        win = win ./ sqrt(sum(win(:).^2));
         
-        for i = 1:cols
+        p = f * [c; r; 1];
+        
+        best_score = -1;
+        best_match = [-1, -1];
+        
+        for i = (w + 1):(cols - w)
             
-            col = (p(1) * i) + 1;
-            row = p(3) + (p(2) * i);
+            y = floor(-((p(1) * i) + p(3)) / p(2)) + 1;
+            
+            tmp = double(img2((y - w):(y + w),(i - w):(i + w)));
+            tmp = tmp ./ sqrt(sum(tmp(:).^2));
+            
+            score = sum(sum(win .* tmp));
+            
+            if score > best_score
+                best_score = score;
+                best_match = [y, i]; % row, col
+            end
             
         end
         
+        v_disparity(r,c) = abs(r - best_match(1));
+        h_disparity(r,c) = abs(c - best_match(2));
+        
     end
+    
+    disp(r);
+    
 end
+
+v_disparity = 255 * ((v_disparity - min(v_disparity(:))) ./ (max(v_disparity(:)) - min(v_disparity(:))));
+h_disparity = 255 * ((h_disparity - min(h_disparity(:))) ./ (max(h_disparity(:)) - min(h_disparity(:))));
